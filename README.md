@@ -26,8 +26,8 @@ This will handle automatically snapshotting datasets similar to time-sliderd fro
 
     /usr/local/bin/zfs-auto-snapshot INTERVAL KEEP
 
-* INTERVAL - The interval for the snapshot. This is something such as `frequent`, `hourly`, `daily`, `weekly`, `monthly`, etc.
-* KEEP - How many to keep for this INTERVAL. Older ones will be destroyed.
+- INTERVAL - The interval for the snapshot. This is something such as `frequent`, `hourly`, `daily`, `weekly`, `monthly`, etc.
+- KEEP - How many to keep for this INTERVAL. Older ones will be destroyed.
 
 #### Crontab
 
@@ -55,7 +55,9 @@ Setting a PostgreSQL dataset's property to `postgresql` will cause zfs-auto-snap
 
     zfs set com.sun:auto-snapshot=postgresql DATASET
 
-The user executing `zfs-auto-snapshot` will require passwordless login to the `postgres` database and will require either REPLICATION or SUPERUSER privileges. The easiest approach is to set up a trust or ident record in your pg_hba.conf. The `zfs-auto-snapshot` script will execute pg_start_backup() prior to saving the snapshot and execute pg_stop_backup() afterwards. 
+The user executing `zfs-auto-snapshot` will require login to the `postgres` database and will require either REPLICATION or SUPERUSER privileges. The easiest approach is to set up a trust or ident record in your pg_hba.conf. The `zfs-auto-snapshot` script will execute `pg_backup_start()` prior to saving the snapshot and execute `pg_backup_stop()` afterwards.
+
+The database connection can be customized by setting the PostgresSQL connection environment variables (`PGHOST`, `PGUSER`, `PGPASSWORD`, etc.). This does mean that you will only be able to backup one PostgreSQL instance per process, as you will need to run the process with alternative variables to backup other databases.
 
 ##### Overrides
 

@@ -1,4 +1,5 @@
 require 'enumerator'
+require 'open3'
 require 'shellwords'
 require 'zfstools/features'
 
@@ -68,8 +69,17 @@ module Zfs
           EOF
           cmd = %Q[mysql -e "#{sql_query}"]
         when 'postgresql'
-          sql_pre_query = "SELECT PG_START_BACKUP('zfs-auto-snapshot');"
-          sql_post_query = "SELECT PG_STOP_BACKUP();"
+          version = get_postgresql_major_version
+
+          # In PostgreSQL 15 and up, the backup command was renamed. See:
+          # https://www.postgresql.org/docs/release/15.0/#:~:text=exclusive
+          if version >= 15
+            sql_pre_query = "SELECT PG_BACKUP_START('zfs-auto-snapshot');"
+            sql_post_query = "SELECT PG_BACKUP_STOP();"
+          else
+            sql_pre_query = "SELECT PG_START_BACKUP('zfs-auto-snapshot');"
+            sql_post_query = "SELECT PG_STOP_BACKUP();"
+          end
           zfs_cmd = cmd
           cmd = %Q[(psql -c "#{sql_pre_query}" postgres ; #{zfs_cmd} ) ; psql -c "#{sql_post_query}" postgres]
         end
@@ -77,6 +87,18 @@ module Zfs
 
       puts cmd if $debug || $verbose
       system(cmd) unless $dry_run
+    end
+
+    def self.get_postgresql_major_version
+      stdout_str, status = Open3.capture2('psql', '-c', '"SHOW server_version;"', '--csv')
+      if status != 0
+        $STDERR.puts("Failed to connect to PostgreSQL database.")
+        return nil
+      end
+
+      version = stdout_str.split(" ")[1]
+      major_version = version.split(".")[0]
+      major_version.to_i
     end
 
     def self.create_many(snapshot_name, datasets, options={})
